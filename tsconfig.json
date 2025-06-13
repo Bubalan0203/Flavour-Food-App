@@ -1,0 +1,18 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "jsx": "react-native",  // ✅ Needed for JSX support
+    "esModuleInterop": true,  // ✅ Fixes React import issue
+    "allowSyntheticDefaultImports": true,  // ✅ Helps with module compatibility
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ]
+}
