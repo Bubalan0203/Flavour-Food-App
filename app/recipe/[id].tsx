@@ -10,7 +10,6 @@ import {
   Image,
   TouchableOpacity
 } from "react-native";
-
 import { Platform } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { useLocalSearchParams } from "expo-router";
@@ -34,6 +33,7 @@ export default function RecipeView() {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const { user } = useAuth();
+  const [foodType, setFoodType] = useState("North Indian"); // Added food type selection
   const isFetching = useRef(false);
 
   useEffect(() => {
@@ -60,18 +60,19 @@ export default function RecipeView() {
     }
   }, []);
 
-  useEffect(() => {
-    const checkSaved = async () => {
-      if (!user || !id) return;
-      const docRef = doc(db, "users", user.uid, "favorites", id as string);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        setAlreadySaved(true);
-      }
-    };
+  const checkSaved = async () => {
+    if (!user || !id) return;
 
-    checkSaved();
-  }, [user, id]);
+    // Check if the recipe is saved in Firestore
+    const docRef = doc(db, "users", user.uid, "favorites", id as string);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      setAlreadySaved(true);
+    } else {
+      setAlreadySaved(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!user) {
@@ -84,15 +85,26 @@ export default function RecipeView() {
       await setDoc(recipeRef, {
         title,
         youtube,
-        steps: steps.join("\n")
+        foodType,
       });
-      setAlreadySaved(true);
+
+      // After saving, immediately check if the recipe is saved
+      checkSaved();
+
       Alert.alert("✅ Saved to favorites!");
     } catch (error) {
       console.error(error);
       Alert.alert("❌ Error saving to favorites.");
     }
   };
+
+  // UseEffect to check if recipe is already saved whenever user or id changes
+  useEffect(() => {
+    if (user && id) {
+      checkSaved();
+    }
+  }, [user, id]); 
+
 
   const translateText = async (text: string, targetLang: string): Promise<string> => {
     try {
@@ -116,7 +128,6 @@ export default function RecipeView() {
       setSteps(splitSteps);
     }
   };
-  
 
   const handleImageUpload = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -124,18 +135,18 @@ export default function RecipeView() {
       allowsEditing: true,
       quality: 0.8,
     });
-  
+
     if (!result.canceled) {
       const uri = result.assets[0].uri;
       setPickedImage(uri);
       setUploading(true);
-  
+
       const filename = uri.split("/").pop() || "dish.jpg";
       const match = /\.(\w+)$/.exec(filename ?? "");
       const type = match ? `image/${match[1]}` : `image/jpeg`;
-  
+
       const formData = new FormData();
-  
+
       if (Platform.OS === "web") {
         const response = await fetch(uri);
         const blob = await response.blob();
@@ -148,14 +159,14 @@ export default function RecipeView() {
           type,
         } as any);
       }
-  
+
       try {
         const response = await fetch("http://192.168.234.1:8000/api/review-dish-image", {
           method: "POST",
           body: formData,
           headers: Platform.OS === "web" ? {} : { "Content-Type": "multipart/form-data" },
         });
-  
+
         const data = await response.json();
         setFeedback(data.feedback);
       } catch (error) {
@@ -166,9 +177,6 @@ export default function RecipeView() {
       }
     }
   };
-  
-  
-  
 
   return (
     <ScrollView style={styles.container}>
